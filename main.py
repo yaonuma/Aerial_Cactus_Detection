@@ -2,12 +2,10 @@ import glob
 import os
 import shutil
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pkg_resources
-import tensorflow as tf
-from matplotlib import pyplot as plt
-from tensorflow.keras.optimizers import RMSprop
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 TERMCOLOR = True
 if TERMCOLOR:
@@ -16,6 +14,14 @@ pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('max_colwidth', 500)
 pd.set_option('display.width', 10000)
+
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, Dense, Flatten, Dropout, Activation
+from tensorflow.keras.layers import BatchNormalization, MaxPooling2D
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+
 
 
 def list_packages_versions():
@@ -37,8 +43,6 @@ def printm(text, color='white', switch=False):
 
 
 def data_raw2ImageDataGenerator(path):
-    # create a dictionary of image labels. it is best to cache this information now to avoid an N^2 image sorting
-    # algorithm. Now it is 2*N. Much better
     label_dict = {}
     with open(path + 'train.csv', 'r') as a_file:
         for line in a_file:
@@ -67,79 +71,85 @@ def data_raw2ImageDataGenerator(path):
 
 
 def build_model(data_root_path):
-    DESIRED_ACCURACY = 0.99
+    model = Sequential()
+    model.add(Conv2D(32, (3, 3), input_shape=(32, 32, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Conv2D(32, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Conv2D(32, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
 
-    class myCallback(tf.keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs={}):
-            if logs.get('accuracy') >= DESIRED_ACCURACY:  # this is the stopping criterion for the training
-                print("\nReached " + str(DESIRED_ACCURACY * 100) + "% accuracy so cancelling training!")
-                self.model.stop_training = True
+    model.add(Conv2D(64, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Conv2D(64, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Conv2D(64, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
 
-    callbacks = myCallback()
+    model.add(Conv2D(128, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
 
-    model = tf.keras.models.Sequential([
-        # Note the input shape is the desired size of the image 300x300 with 3 bytes color
-        # This is the first convolution
-        tf.keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(32, 32, 3)),
-        tf.keras.layers.MaxPooling2D(2, 2),
-        # The second convolution
-        tf.keras.layers.Conv2D(32, (3, 3), activation='relu'),
-        tf.keras.layers.MaxPooling2D(2, 2),
-        # The third convolution
-        tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-        tf.keras.layers.MaxPooling2D(2, 2),
-        # # The fourth convolution
-        # tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-        # tf.keras.layers.MaxPooling2D(2, 2),
-        # # The fifth convolution
-        # tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-        # tf.keras.layers.MaxPooling2D(2, 2),
-        # Flatten the results to feed into a DNN
-        tf.keras.layers.Flatten(),
-        # 512 neuron hidden layer
-        tf.keras.layers.Dense(512, activation='relu'),
-        # Only 1 output neuron. It will contain a value from 0-1 where 0 for 1 class ('horses') and 1 for the other ('humans')
-        tf.keras.layers.Dense(1, activation='sigmoid')
-    ])
+    model.add(Flatten())
+    model.add(Dense(1024))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+
+    model.add(Dense(256))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+
+    model.add(Dense(1))
+    model.add(Activation('sigmoid'))
+
     print(model.summary())
 
-    model.compile(loss='binary_crossentropy',
-                  optimizer=RMSprop(lr=0.001),
+    model.compile(loss=keras.losses.binary_crossentropy,
+                  optimizer=keras.optimizers.Adam(lr=0.0005),
                   metrics=['accuracy'])
 
-    # This code block should create an instance of an ImageDataGenerator called train_datagen
-    # And a train_generator by calling train_datagen.flow_from_directory
-    train_datagen = ImageDataGenerator(featurewise_center=True,
-                                       featurewise_std_normalization=True,
-                                       rotation_range=40,
-                                       width_shift_range=0.2,
-                                       zoom_range=0.2,
-                                       horizontal_flip=True,
-                                       rescale=1 / 255,
-                                       validation_split=0.2)
+    batch_size = 32
 
-    # Flow training images in batches of 128 using train_datagen generator
-    train_generator = train_datagen.flow_from_directory(data_root_path + 'train',
-                                                        subset='training',
-                                                        target_size=(32, 32),
-                                                        batch_size=128,
-                                                        class_mode='binary')
-    validation_generator = train_datagen.flow_from_directory(data_root_path + 'train',
-                                                             subset='validation',
-                                                             target_size=(32, 32),
-                                                             batch_size=128,
-                                                             class_mode='binary')
+    train_datagen = ImageDataGenerator(
+        rescale=1. / 255,
+        horizontal_flip=True,
+        vertical_flip=True,
+        validation_split=0.2)
+
+    train_data_dir = data_root_path + "/train"
+    train_generator = train_datagen.flow_from_directory(
+        train_data_dir,
+        subset='training',
+        shuffle=True,
+        target_size=(32, 32),
+        batch_size=batch_size,
+        class_mode='binary')
+
+    validation_generator = train_datagen.flow_from_directory(
+        train_data_dir,
+        subset='validation',
+        target_size=(32, 32),
+        batch_size=batch_size,
+        class_mode='binary')
 
     # model fitting
-    history = model.fit_generator(
-        train_generator,
-        validation_data=validation_generator,
-        validation_steps=20,
-        steps_per_epoch=20,
-        epochs=100,
-        verbose=1,
-        callbacks=[callbacks]
-    )
+    callbacks = [EarlyStopping(monitor='val_loss', patience=5),
+                 ModelCheckpoint(filepath='best_model.h5', monitor='val_loss', save_best_only=True)]
+
+    history = model.fit_generator(train_generator,
+                                  validation_data=validation_generator,
+                                  epochs=20,
+                                  verbose=1,
+                                  shuffle=True,
+                                  callbacks=callbacks)
 
     # summarize history for accuracy and loss
     plt.figure(figsize=(6, 4))
@@ -157,57 +167,44 @@ def build_model(data_root_path):
     return model
 
 
-def test_model(data_root_path, model):
-    test_datagen = ImageDataGenerator(featurewise_center=True,
-                                      featurewise_std_normalization=True,
-                                      rotation_range=40,
-                                      width_shift_range=0.2,
-                                      zoom_range=0.2,
-                                      horizontal_flip=True,
-                                      rescale=1 / 255)
+def write_submission(data_root_path, model):
+    test_folder = data_root_path + "test/"
 
-    test_generator = test_datagen.flow_from_directory(data_root_path + '/test/',
-                                                      target_size=(32, 32),
-                                                      batch_size=16,
-                                                      class_mode=None,  # only data, no labels
-                                                      shuffle=False)
+    test_datagen = ImageDataGenerator(
+        rescale=1. / 255)
 
-    probabilities = model.predict_generator(test_generator)
+    test_generator = test_datagen.flow_from_directory(
+        directory=test_folder,
+        target_size=(32, 32),
+        batch_size=32,
+        class_mode='binary',
+        shuffle=False
+    )
 
-    return probabilities
+    pred = model.predict_generator(test_generator, verbose=1)
+    pred_binary = [1 if value < 0.50 else 0 for value in pred]  # polarity reversed here beacuse of internal
+    # mapping to class labels. can fix this by defining the mapping explicitly
 
+    csv_file = open("submission.csv", "w")
+    csv_file.write("id,has_cactus\n")
+    for filename, prediction in zip(test_generator.filenames, pred_binary):
+        name = filename.split("/")[1].replace(".tif", "")
+        csv_file.write(str(name) + "," + str(prediction) + "\n")
+    csv_file.close()
 
-def write_submission(raw_data_path, probs):
-    test_result_dict = {}
-
-    for i, image in enumerate(glob.glob(raw_data_path + 'test/no_label/*.jpg')):
-        image = image.split('/')[-1]
-        test_result_dict[image] = probs[i][0]
-
-    df_submission = pd.read_csv(raw_data_path + 'sample_submission.csv')
-
-    def result_fill(x):
-        return test_result_dict[x[0]]
-
-    df_submission['has_cactus'] = df_submission.apply(result_fill, axis=1)
-    df_submission.sort_values(by=['id']).to_csv(raw_data_path + 'submissions/submission.csv')
-
-    return
+    return pred_binary
 
 
 if __name__ == '__main__':
     # look at versions to avoid confusion with deprecation/compatibility
-    list_packages_versions()
+    # list_packages_versions()
 
     # do some proprocessing to make it compatible with the flow_from_directory() method
-    raw_data_path = 'data/'
-    data_raw2ImageDataGenerator(raw_data_path)
+    data_root_path = 'data/'
+    data_raw2ImageDataGenerator(data_root_path)
 
     # model the training data with simple 2DConvNet from scratch
-    model_cactus = build_model(raw_data_path)
+    model_cactus = build_model(data_root_path)
 
-    # get model results
-    probabilities = test_model(raw_data_path, model_cactus)
-
-    # write model results in the format required by the Kaggle competition.
-    write_submission(raw_data_path, probabilities)
+    # get model results write model results in the format required by the Kaggle competition.
+    probabilities = write_submission(data_root_path, model_cactus)
