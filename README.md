@@ -2,15 +2,24 @@
 
 This is my submission to the Aerial Cactus Competition on Kaggle (https://www.kaggle.com/c/aerial-cactus-identification)
 
-"
-o assess the impact of climate change on Earth's flora and fauna, it is vital to quantify how human activities such as logging, mining, and agriculture are impacting our protected natural areas. Researchers in Mexico have created the VIGIA project, which aims to build a system for autonomous surveillance of protected areas. A first step in such an effort is the ability to recognize the vegetation inside the protected areas. In this competition, you are tasked with creation of an algorithm that can identify a specific type of cactus in aerial imagery.
+Abstract:
 
-This is a kernels-only competition, meaning you must submit predictions using Kaggle Kernels. Read the basics here.
-Acknowledgments
+To assess the impact of climate change on Earth's flora and fauna, it is vital to quantify how human activities such as logging, mining, and agriculture are impacting our protected natural areas. Researchers in Mexico have created the VIGIA project, which aims to build a system for autonomous surveillance of protected areas. A first step in such an effort is the ability to recognize the vegetation inside the protected areas. In this competition, you are tasked with creation of an algorithm that can identify a specific type of cactus in aerial imagery.
 
-Kaggle is hosting this competition for the machine learning community to use for fun and practice. The original version of this data can be found here, with details in the following paper:
 
-Efren López-Jiménez, Juan Irving Vasquez-Gomez, Miguel Angel Sanchez-Acevedo, Juan Carlos Herrera-Lozada, Abril Valeria Uriarte-Arcia, Columnar Cactus Recognition in Aerial Images using a Deep Learning Approach. Ecological Informatics. 2019.
+Dataset and Problem Description:
 
-Acknowledgements to Consejo Nacional de Ciencia y Tecnología. Project cátedra 1507. Instituto Politècnico Nacional. Universidad de la Cañada. Contributors: Eduardo Armas Garca, Rafael Cano Martnez and Luis Cresencio Mota Carrera. J.I. Vasquez-Gomez, JC. Herrera Lozada. Abril Uriarte, Miguel Sanchez.
-"
+This dataset contains a large number of 32 x 32 thumbnail images containing aerial photos of a columnar cactus (Neobuxbaumia tetetzo). Kaggle has resized the images from the original dataset to make them uniform in size. The file name of an image corresponds to its id.
+
+You must create a classifier capable of predicting whether an images contains a cactus.
+
+Files:
+
+train/ - the training set images
+test/ - the test set images (you must predict the labels of these)
+train.csv - the training set labels, indicates whether the image has a cactus (has_cactus = 1)
+sample_submission.csv - a sample submission file in the correct format
+
+Analysis Summary:
+
+A simple 2DConvNet is created from scratch, achieving __%+accuracy.
