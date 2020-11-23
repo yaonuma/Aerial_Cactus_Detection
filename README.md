@@ -22,4 +22,4 @@ sample_submission.csv - a sample submission file in the correct format
 
 Analysis Summary:
 
-A simple 2DConvNet is created from scratch, achieving 98%+ accuracy.
+A simple 2DConvNet is created from scratch, achieving 98%+ accuracy. Transfer learning was not necessary for this simple dataset.
